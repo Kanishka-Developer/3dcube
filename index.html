@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Cube Visualization Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: #333;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            text-align: center;
+            color: #4a5568;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            text-align: center;
+            color: #718096;
+            font-size: 0.9rem;
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            gap: 1rem;
+            padding: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .cube-container {
+            flex: 2;
+            min-width: 300px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 1rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .controls-container {
+            flex: 1;
+            min-width: 280px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 10px;
+            padding: 1rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            height: fit-content;
+        }
+
+        .scene {
+            width: 100%;
+            max-width: 500px;
+            height: 400px;
+            perspective: 1000px;
+            margin: 1rem 0;
+        }
+
+        .grid-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 10;
+        }
+
+        .grid-overlay.visible {
+            opacity: 0.8;
+        }
+
+        .grid-line {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 3px rgba(0, 0, 0, 0.7);
+            z-index: 11;
+        }
+
+        .grid-line.horizontal {
+            width: 100%;
+            height: 3px;
+            transform: translateY(-1.5px);
+        }
+
+        .grid-line.vertical {
+            height: 100%;
+            width: 3px;
+            transform: translateX(-1.5px);
+        }
+
+        .dice-dots {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .dice-dot {
+            width: 20px;
+            height: 20px;
+            background: #333;
+            border-radius: 50%;
+            margin: 2px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .dice-1 {
+            display: grid;
+            place-items: center;
+        }
+
+        .dice-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            place-items: center;
+        }
+
+        .dice-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            place-items: center;
+        }
+
+        .dice-4 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            place-items: center;
+        }
+
+        .dice-5 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
+            place-items: center;
+        }
+
+        .dice-6 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
+            place-items: center;
+        }
+
+        .cube {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            margin: 100px auto;
+            transform-style: preserve-3d;
+            transform: rotateX(-20deg) rotateY(20deg);
+            transition: transform 0.3s ease;
+        }
+
+        .face {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            border: 2px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .front { background: #ff6b6b; transform: translateZ(100px); }
+        .back { background: #4ecdc4; transform: rotateY(180deg) translateZ(100px); }
+        .right { background: #45b7d1; transform: rotateY(90deg) translateZ(100px); }
+        .left { background: #96ceb4; transform: rotateY(-90deg) translateZ(100px); }
+        .top { background: #ffeaa7; transform: rotateX(90deg) translateZ(100px); }
+        .bottom { background: #dda0dd; transform: rotateX(-90deg) translateZ(100px); }
+
+        .face.selected {
+            box-shadow: 0 0 20px #fff, inset 0 0 20px rgba(255,255,255,0.3);
+            border-color: #fff;
+            border-width: 3px;
+        }
+
+        .control-section {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .control-section:last-child {
+            border-bottom: none;
+        }
+
+        .control-section h3 {
+            color: #4a5568;
+            margin-bottom: 0.8rem;
+            font-size: 1.1rem;
+        }
+
+        .control-group {
+            margin-bottom: 0.8rem;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 0.3rem;
+            color: #718096;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        input, select, button {
+            width: 100%;
+            padding: 0.6rem;
+            border: 1px solid #cbd5e0;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+            margin-bottom: 0.5rem;
+        }
+
+        button:hover {
+            background: #5a67d8;
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        .color-picker {
+            width: 100%;
+            height: 40px;
+            border: 1px solid #cbd5e0;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .face-selector {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .face-btn {
+            padding: 0.5rem;
+            font-size: 0.8rem;
+            margin-bottom: 0;
+        }
+
+        .face-btn.active {
+            background: #4ecdc4;
+        }
+
+        .slice-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .slice-input {
+            text-align: center;
+        }
+
+        .grid-toggle {
+            background: #48bb78;
+            margin-top: 0.5rem;
+        }
+
+        .grid-toggle:hover {
+            background: #38a169;
+        }
+
+        .grid-toggle.active {
+            background: #2f855a;
+        }
+
+        .analysis-result {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 5px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .analysis-result h4 {
+            color: #4a5568;
+            margin-bottom: 0.5rem;
+        }
+
+        .cube-type {
+            margin: 0.3rem 0;
+            color: #718096;
+        }
+
+        .color-analysis {
+            background: #fff5f5;
+            border: 1px solid #fed7d7;
+            border-radius: 5px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .color-analysis h4 {
+            color: #c53030;
+            margin-bottom: 0.5rem;
+        }
+
+        .color-cube-count {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .color-item {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 3px;
+            padding: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .color-swatch {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            border: 1px solid #ccc;
+            flex-shrink: 0;
+        }
+
+        .adjacent-analysis {
+            background: #f0fff4;
+            border: 1px solid #c6f6d5;
+            border-radius: 5px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .adjacent-analysis h4 {
+            color: #2f855a;
+            margin-bottom: 0.5rem;
+        }
+
+        .performance-info {
+            background: #ebf8ff;
+            border: 1px solid #bee3f8;
+            border-radius: 5px;
+            padding: 0.8rem;
+            margin-top: 1rem;
+            font-size: 0.8rem;
+            color: #2c5282;
+        }
+
+        .rotation-controls {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .rotation-controls button {
+            flex: 1;
+            min-width: 60px;
+            padding: 0.4rem;
+            font-size: 0.8rem;
+            margin-bottom: 0;
+        }
+
+        .instructions {
+            background: #e6fffa;
+            border-left: 4px solid #4ecdc4;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 0 5px 5px 0;
+        }
+
+        .instructions h4 {
+            color: #234e52;
+            margin-bottom: 0.5rem;
+        }
+
+        .instructions ul {
+            color: #285e61;
+            padding-left: 1.2rem;
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+
+        .instructions li {
+            margin-bottom: 0.3rem;
+        }
+
+            @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+                padding: 0.5rem;
+            }
+            
+            .scene {
+                height: 300px;
+            }
+            
+            .cube {
+                width: 150px;
+                height: 150px;
+                margin: 75px auto;
+            }
+            
+            .face {
+                width: 150px;
+                height: 150px;
+                font-size: 18px;
+            }
+            
+            .dice-dots {
+                padding: 15px;
+            }
+            
+            .dice-dot {
+                width: 15px;
+                height: 15px;
+            }
+            
+            .grid-line.horizontal {
+                height: 2px;
+                transform: translateY(-1px);
+            }
+            
+            .grid-line.vertical {
+                width: 2px;
+                transform: translateX(-1px);
+            }
+            
+            .front, .back { transform: translateZ(75px); }
+            .back { transform: rotateY(180deg) translateZ(75px); }
+            .right { transform: rotateY(90deg) translateZ(75px); }
+            .left { transform: rotateY(-90deg) translateZ(75px); }
+            .top { transform: rotateX(90deg) translateZ(75px); }
+            .bottom { transform: rotateX(-90deg) translateZ(75px); }
+            
+            .rotation-controls {
+                justify-content: space-between;
+            }
+            
+            .rotation-controls button {
+                flex: 0 1 calc(25% - 0.375rem);
+            }
+            
+            .color-cube-count {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                padding: 0.8rem;
+            }
+            
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .slice-controls {
+                grid-template-columns: 1fr;
+            }
+            
+            .face-selector {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .rotation-controls {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 0.3rem;
+            }
+            
+            .rotation-controls button {
+                flex: none;
+                font-size: 0.7rem;
+                padding: 0.3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>3D Cube Visualization Tool</h1>
+        <p>Interactive cube for solving aptitude questions involving 3D geometry and cube analysis</p>
+    </div>
+
+    <div class="main-container">
+        <div class="cube-container">
+            <div class="scene">
+                <div class="cube" id="cube">
+                    <div class="face front" data-face="front">Front
+                        <div class="grid-overlay" data-face="front"></div>
+                    </div>
+                    <div class="face back" data-face="back">Back
+                        <div class="grid-overlay" data-face="back"></div>
+                    </div>
+                    <div class="face right" data-face="right">Right
+                        <div class="grid-overlay" data-face="right"></div>
+                    </div>
+                    <div class="face left" data-face="left">Left
+                        <div class="grid-overlay" data-face="left"></div>
+                    </div>
+                    <div class="face top" data-face="top">Top
+                        <div class="grid-overlay" data-face="top"></div>
+                    </div>
+                    <div class="face bottom" data-face="bottom">Bottom
+                        <div class="grid-overlay" data-face="bottom"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="rotation-controls">
+                <button onclick="rotateCube('rotateY', -45)">← Y</button>
+                <button onclick="rotateCube('rotateY', 45)">Y →</button>
+                <button onclick="rotateCube('rotateX', -45)">↑ X</button>
+                <button onclick="rotateCube('rotateX', 45)">X ↓</button>
+                <button onclick="rotateCube('rotateZ', -45)">↺ Z</button>
+                <button onclick="rotateCube('rotateZ', 45)">Z ↻</button>
+                <button onclick="resetRotation()">Reset</button>
+                <button onclick="autoRotate()">Auto</button>
+            </div>
+        </div>
+
+        <div class="controls-container">
+            <div class="instructions">
+                <h4>Instructions:</h4>
+                <ul>
+                    <li>Click on cube faces to select them</li>
+                    <li>Use rotation controls or drag to rotate the cube</li>
+                    <li>Customize each face with colors, numbers, or text</li>
+                    <li>Use slice analysis to solve aptitude questions</li>
+                    <li>Perfect for finding opposite/adjacent faces and cube counting problems</li>
+                </ul>
+            </div>
+
+            <div class="control-section">
+                <h3>Face Customization</h3>
+                <div class="face-selector">
+                    <button class="face-btn active" onclick="selectFace('front')">Front</button>
+                    <button class="face-btn" onclick="selectFace('back')">Back</button>
+                    <button class="face-btn" onclick="selectFace('right')">Right</button>
+                    <button class="face-btn" onclick="selectFace('left')">Left</button>
+                    <button class="face-btn" onclick="selectFace('top')">Top</button>
+                    <button class="face-btn" onclick="selectFace('bottom')">Bottom</button>
+                </div>
+                
+                <div class="control-group">
+                    <label for="faceText">Face Text/Number:</label>
+                    <input type="text" id="faceText" placeholder="Enter text or number" onchange="updateFaceText()">
+                </div>
+                
+                <div class="control-group">
+                    <label for="faceColor">Face Color:</label>
+                    <input type="color" id="faceColor" class="color-picker" onchange="updateFaceColor()">
+                </div>
+                
+                <button onclick="clearFace()">Clear Selected Face</button>
+                <button onclick="resetAllFaces()">Reset All Faces</button>
+            </div>
+
+            <div class="control-section">
+                <h3>Cube Slicing Analysis</h3>
+                <div class="slice-controls">
+                    <div class="control-group">
+                        <label for="sliceX">X Slices:</label>
+                        <input type="number" id="sliceX" class="slice-input" value="3" min="1" max="10" onchange="updateGridLines()">
+                    </div>
+                    <div class="control-group">
+                        <label for="sliceY">Y Slices:</label>
+                        <input type="number" id="sliceY" class="slice-input" value="3" min="1" max="10" onchange="updateGridLines()">
+                    </div>
+                    <div class="control-group">
+                        <label for="sliceZ">Z Slices:</label>
+                        <input type="number" id="sliceZ" class="slice-input" value="3" min="1" max="10" onchange="updateGridLines()">
+                    </div>
+                </div>
+                
+                <button id="gridToggle" class="grid-toggle" onclick="toggleGridLines()">Show Grid Lines</button>
+                <button onclick="analyzeSlices()">Analyze Cube Slices</button>
+                
+                <div id="analysisResult" class="analysis-result" style="display: none;">
+                    <h4>Slice Analysis Results:</h4>
+                    <div id="analysisContent"></div>
+                </div>
+
+                <div id="colorAnalysis" class="color-analysis" style="display: none;">
+                    <h4>Color-Based Cube Analysis:</h4>
+                    <div id="colorContent"></div>
+                </div>
+
+                <div id="adjacentAnalysis" class="adjacent-analysis" style="display: none;">
+                    <h4>Adjacent Face Color Analysis:</h4>
+                    <div id="adjacentContent"></div>
+                </div>
+
+                <div class="performance-info">
+                    <strong>💡 Pro Tips:</strong><br>
+                    • Use grid lines to visualize slice positions<br>
+                    • Color analysis shows cubes with specific face combinations<br>
+                    • Perfect for solving "painted cube" aptitude questions
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>Quick Presets</h3>
+                <button onclick="loadDicePreset()">🎲 Dice Pattern</button>
+                <button onclick="loadColorPreset()">🌈 Color Pattern</button>
+                <button onclick="loadNumberPreset()">🔢 Number Pattern</button>
+                <button onclick="loadOppositePreset()">🔄 Opposite Pairs</button>
+                <button onclick="loadAptitudePreset()">📚 Aptitude Test Pattern</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentRotationX = -20;
+        let currentRotationY = 20;
+        let currentRotationZ = 0;
+        let selectedFace = 'front';
+        let isAutoRotating = false;
+        let autoRotateInterval = null;
+        let isDragging = false;
+        let startX, startY;
+        let gridLinesVisible = false;
+
+        const cube = document.getElementById('cube');
+        const faceElements = document.querySelectorAll('.face');
+        const gridOverlays = document.querySelectorAll('.grid-overlay');
+
+        // Face data storage
+        const faceData = {
+            front: { text: 'Front', color: '#ff6b6b' },
+            back: { text: 'Back', color: '#4ecdc4' },
+            right: { text: 'Right', color: '#45b7d1' },
+            left: { text: 'Left', color: '#96ceb4' },
+            top: { text: 'Top', color: '#ffeaa7' },
+            bottom: { text: 'Bottom', color: '#dda0dd' }
+        };
+
+        // Initialize event listeners
+        function init() {
+            // Face click handlers
+            faceElements.forEach(face => {
+                face.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectFace(face.dataset.face);
+                });
+            });
+
+            // Mouse drag rotation
+            cube.addEventListener('mousedown', startDrag);
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', endDrag);
+
+            // Touch drag rotation for mobile
+            cube.addEventListener('touchstart', startDragTouch, { passive: false });
+            document.addEventListener('touchmove', dragTouch, { passive: false });
+            document.addEventListener('touchend', endDrag);
+
+            // Initialize face selection and grid
+            selectFace('front');
+            updateCubeRotation();
+            createGridLines();
+            updateGridLines();
+            
+            // Show grid lines by default for demonstration
+            setTimeout(() => {
+                toggleGridLines();
+            }, 500);
+        }
+
+        function startDrag(e) {
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            stopAutoRotation();
+        }
+
+        function startDragTouch(e) {
+            e.preventDefault();
+            isDragging = true;
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            stopAutoRotation();
+        }
+
+        function drag(e) {
+            if (!isDragging) return;
+            
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            
+            currentRotationY += deltaX * 0.5;
+            currentRotationX -= deltaY * 0.5;
+            
+            updateCubeRotation();
+            
+            startX = e.clientX;
+            startY = e.clientY;
+        }
+
+        function dragTouch(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            
+            const deltaX = e.touches[0].clientX - startX;
+            const deltaY = e.touches[0].clientY - startY;
+            
+            currentRotationY += deltaX * 0.5;
+            currentRotationX -= deltaY * 0.5;
+            
+            updateCubeRotation();
+            
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        }
+
+        function endDrag() {
+            isDragging = false;
+        }
+
+        function rotateCube(axis, angle) {
+            stopAutoRotation();
+            
+            switch(axis) {
+                case 'rotateX':
+                    currentRotationX += angle;
+                    break;
+                case 'rotateY':
+                    currentRotationY += angle;
+                    break;
+                case 'rotateZ':
+                    currentRotationZ += angle;
+                    break;
+            }
+            
+            updateCubeRotation();
+        }
+
+        function updateCubeRotation() {
+            cube.style.transform = `rotateX(${currentRotationX}deg) rotateY(${currentRotationY}deg) rotateZ(${currentRotationZ}deg)`;
+        }
+
+        function resetRotation() {
+            stopAutoRotation();
+            currentRotationX = -20;
+            currentRotationY = 20;
+            currentRotationZ = 0;
+            updateCubeRotation();
+        }
+
+        function autoRotate() {
+            if (isAutoRotating) {
+                stopAutoRotation();
+                return;
+            }
+            
+            isAutoRotating = true;
+            autoRotateInterval = setInterval(() => {
+                currentRotationY += 1;
+                currentRotationX += 0.5;
+                updateCubeRotation();
+            }, 50);
+        }
+
+        function stopAutoRotation() {
+            if (autoRotateInterval) {
+                clearInterval(autoRotateInterval);
+                autoRotateInterval = null;
+                isAutoRotating = false;
+            }
+        }
+
+        function selectFace(faceName) {
+            selectedFace = faceName;
+            
+            // Update UI
+            document.querySelectorAll('.face-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`button[onclick="selectFace('${faceName}')"]`).classList.add('active');
+            
+            // Update input fields
+            document.getElementById('faceText').value = faceData[faceName].text;
+            document.getElementById('faceColor').value = faceData[faceName].color;
+            
+            // Highlight selected face
+            faceElements.forEach(face => face.classList.remove('selected'));
+            document.querySelector(`[data-face="${faceName}"]`).classList.add('selected');
+        }
+
+        function updateFaceText() {
+            const text = document.getElementById('faceText').value;
+            faceData[selectedFace].text = text;
+            const faceElement = document.querySelector(`[data-face="${selectedFace}"]`);
+            
+            // Preserve the grid overlay and remove any dice dots when updating text
+            const gridOverlay = faceElement.querySelector('.grid-overlay');
+            const diceDots = faceElement.querySelector('.dice-dots');
+            
+            faceElement.innerHTML = text;
+            
+            if (gridOverlay) {
+                faceElement.appendChild(gridOverlay);
+            }
+            
+            // Don't re-add dice dots when manually updating text
+        }
+
+        function updateFaceColor() {
+            const color = document.getElementById('faceColor').value;
+            faceData[selectedFace].color = color;
+            document.querySelector(`[data-face="${selectedFace}"]`).style.backgroundColor = color;
+        }
+
+        function clearFace() {
+            faceData[selectedFace].text = '';
+            faceData[selectedFace].color = '#cccccc';
+            const faceElement = document.querySelector(`[data-face="${selectedFace}"]`);
+            
+            // Preserve the grid overlay when clearing but remove dice dots
+            const gridOverlay = faceElement.querySelector('.grid-overlay');
+            faceElement.innerHTML = '';
+            if (gridOverlay) {
+                faceElement.appendChild(gridOverlay);
+            }
+            faceElement.style.backgroundColor = '#cccccc';
+            
+            // Update input fields
+            document.getElementById('faceText').value = '';
+            document.getElementById('faceColor').value = '#cccccc';
+        }
+
+        function resetAllFaces() {
+            const defaultColors = {
+                front: '#ff6b6b',
+                back: '#4ecdc4',
+                right: '#45b7d1',
+                left: '#96ceb4',
+                top: '#ffeaa7',
+                bottom: '#dda0dd'
+            };
+            
+            Object.keys(faceData).forEach(faceName => {
+                faceData[faceName].text = faceName.charAt(0).toUpperCase() + faceName.slice(1);
+                faceData[faceName].color = defaultColors[faceName];
+                
+                const faceElement = document.querySelector(`[data-face="${faceName}"]`);
+                
+                // Preserve the grid overlay when resetting
+                const gridOverlay = faceElement.querySelector('.grid-overlay');
+                faceElement.innerHTML = faceData[faceName].text;
+                if (gridOverlay) {
+                    faceElement.appendChild(gridOverlay);
+                }
+                faceElement.style.backgroundColor = faceData[faceName].color;
+            });
+            
+            selectFace(selectedFace); // Refresh input fields
+        }
+
+        function analyzeSlices() {
+            const sliceX = parseInt(document.getElementById('sliceX').value);
+            const sliceY = parseInt(document.getElementById('sliceY').value);
+            const sliceZ = parseInt(document.getElementById('sliceZ').value);
+            
+            const totalCubes = sliceX * sliceY * sliceZ;
+            
+            // Calculate different types of small cubes
+            const cornerCubes = Math.min(8, totalCubes); // Can't have more than 8 corners
+            
+            // Edge cubes (excluding corners)
+            const edgeCubes = Math.max(0, 
+                (sliceX > 2 ? 4 * (sliceX - 2) : 0) + 
+                (sliceY > 2 ? 4 * (sliceY - 2) : 0) + 
+                (sliceZ > 2 ? 4 * (sliceZ - 2) : 0)
+            );
+            
+            // Face cubes (excluding edges and corners)
+            const faceCubes = Math.max(0, 
+                (sliceX > 2 && sliceY > 2 ? 2 * (sliceX - 2) * (sliceY - 2) : 0) + // front and back faces
+                (sliceY > 2 && sliceZ > 2 ? 2 * (sliceY - 2) * (sliceZ - 2) : 0) + // left and right faces
+                (sliceX > 2 && sliceZ > 2 ? 2 * (sliceX - 2) * (sliceZ - 2) : 0)   // top and bottom faces
+            );
+            
+            // Internal cubes (no exposed faces)
+            const internalCubes = Math.max(0, 
+                (sliceX > 2 && sliceY > 2 && sliceZ > 2 ? (sliceX - 2) * (sliceY - 2) * (sliceZ - 2) : 0)
+            );
+            
+            const analysisContent = `
+                <div class="cube-type"><strong>Total small cubes:</strong> ${totalCubes}</div>
+                <div class="cube-type"><strong>Corner cubes (3 faces exposed):</strong> ${cornerCubes}</div>
+                <div class="cube-type"><strong>Edge cubes (2 faces exposed):</strong> ${edgeCubes}</div>
+                <div class="cube-type"><strong>Face cubes (1 face exposed):</strong> ${faceCubes}</div>
+                <div class="cube-type"><strong>Internal cubes (0 faces exposed):</strong> ${internalCubes}</div>
+                <hr style="margin: 0.8rem 0;">
+                <div class="cube-type"><strong>Verification:</strong> ${cornerCubes + edgeCubes + faceCubes + internalCubes} = ${totalCubes} ✓</div>
+                <hr style="margin: 0.8rem 0;">
+                <div class="cube-type"><strong>Slice Configuration:</strong> ${sliceX} × ${sliceY} × ${sliceZ}</div>
+                <div class="cube-type"><strong>Grid lines show exact slice positions</strong></div>
+            `;
+            
+            document.getElementById('analysisContent').innerHTML = analysisContent;
+            document.getElementById('analysisResult').style.display = 'block';
+            
+            // Perform color analysis
+            analyzeColors(sliceX, sliceY, sliceZ, cornerCubes, edgeCubes, faceCubes, internalCubes);
+            
+            // Perform adjacent face analysis
+            analyzeAdjacentColors(sliceX, sliceY, sliceZ);
+        }
+
+        function analyzeColors(sliceX, sliceY, sliceZ, cornerCubes, edgeCubes, faceCubes, internalCubes) {
+            const faces = ['front', 'back', 'left', 'right', 'top', 'bottom'];
+            const faceColors = {};
+            
+            faces.forEach(face => {
+                faceColors[face] = {
+                    color: faceData[face].color,
+                    text: faceData[face].text
+                };
+            });
+            
+            // Count cubes by color exposure
+            const colorCounts = {};
+            
+            // Corner cubes (3 faces visible)
+            const cornerCombs = [
+                ['front', 'top', 'right'], ['front', 'top', 'left'], 
+                ['front', 'bottom', 'right'], ['front', 'bottom', 'left'],
+                ['back', 'top', 'right'], ['back', 'top', 'left'], 
+                ['back', 'bottom', 'right'], ['back', 'bottom', 'left']
+            ];
+            
+            cornerCombs.forEach(combo => {
+                const key = combo.map(f => faceColors[f].text || f).sort().join(' + ');
+                colorCounts[key] = (colorCounts[key] || 0) + 1;
+            });
+            
+            // Edge cubes (2 faces visible)
+            const edgeCombs = [
+                ['front', 'top'], ['front', 'bottom'], ['front', 'left'], ['front', 'right'],
+                ['back', 'top'], ['back', 'bottom'], ['back', 'left'], ['back', 'right'],
+                ['top', 'left'], ['top', 'right'], ['bottom', 'left'], ['bottom', 'right']
+            ];
+            
+            edgeCombs.forEach(combo => {
+                const edgeCount = Math.max(0, 
+                    combo.includes('front') || combo.includes('back') ? Math.max(0, sliceZ - 2) :
+                    combo.includes('left') || combo.includes('right') ? Math.max(0, sliceY - 2) :
+                    Math.max(0, sliceX - 2)
+                );
+                
+                if (edgeCount > 0) {
+                    const key = combo.map(f => faceColors[f].text || f).sort().join(' + ');
+                    colorCounts[key] = (colorCounts[key] || 0) + edgeCount;
+                }
+            });
+            
+            // Face cubes (1 face visible)
+            faces.forEach(face => {
+                let faceCount = 0;
+                if (face === 'front' || face === 'back') {
+                    faceCount = Math.max(0, (sliceX - 2) * (sliceY - 2));
+                } else if (face === 'left' || face === 'right') {
+                    faceCount = Math.max(0, (sliceY - 2) * (sliceZ - 2));
+                } else { // top or bottom
+                    faceCount = Math.max(0, (sliceX - 2) * (sliceZ - 2));
+                }
+                
+                if (faceCount > 0) {
+                    const key = faceColors[face].text || face;
+                    colorCounts[key] = (colorCounts[key] || 0) + faceCount;
+                }
+            });
+            
+            // Display color analysis
+            let colorContent = '<div class="color-cube-count">';
+            Object.entries(colorCounts).forEach(([colorCombo, count]) => {
+                const color = colorCombo.includes('+') ? '#cccccc' : 
+                              Object.values(faceColors).find(f => f.text === colorCombo)?.color || '#cccccc';
+                colorContent += `
+                    <div class="color-item">
+                        <div class="color-swatch" style="background-color: ${color}"></div>
+                        <span><strong>${colorCombo}:</strong> ${count} cubes</span>
+                    </div>
+                `;
+            });
+            colorContent += '</div>';
+            
+            document.getElementById('colorContent').innerHTML = colorContent;
+            document.getElementById('colorAnalysis').style.display = 'block';
+        }
+
+        function analyzeAdjacentColors(sliceX, sliceY, sliceZ) {
+            const adjacentPairs = [
+                ['front', 'top'], ['front', 'bottom'], ['front', 'left'], ['front', 'right'],
+                ['back', 'top'], ['back', 'bottom'], ['back', 'left'], ['back', 'right'],
+                ['left', 'top'], ['left', 'bottom'], ['right', 'top'], ['right', 'bottom']
+            ];
+            
+            let adjacentContent = '<div style="font-size: 0.85rem; line-height: 1.4;">';
+            adjacentContent += '<strong>Adjacent face relationships:</strong><br>';
+            
+            adjacentPairs.forEach(pair => {
+                const color1 = faceData[pair[0]].color;
+                const color2 = faceData[pair[1]].color;
+                const text1 = faceData[pair[0]].text || pair[0];
+                const text2 = faceData[pair[1]].text || pair[1];
+                
+                adjacentContent += `
+                    <div style="margin: 0.3rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                        <div class="color-swatch" style="background-color: ${color1}; width: 15px; height: 15px;"></div>
+                        <span style="font-size: 0.8rem;">${text1}</span>
+                        <span style="color: #666;">↔</span>
+                        <div class="color-swatch" style="background-color: ${color2}; width: 15px; height: 15px;"></div>
+                        <span style="font-size: 0.8rem;">${text2}</span>
+                    </div>
+                `;
+            });
+            
+            adjacentContent += '<br><strong>Opposite face pairs:</strong><br>';
+            const oppositePairs = [['front', 'back'], ['left', 'right'], ['top', 'bottom']];
+            
+            oppositePairs.forEach(pair => {
+                const color1 = faceData[pair[0]].color;
+                const color2 = faceData[pair[1]].color;
+                const text1 = faceData[pair[0]].text || pair[0];
+                const text2 = faceData[pair[1]].text || pair[1];
+                
+                adjacentContent += `
+                    <div style="margin: 0.3rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                        <div class="color-swatch" style="background-color: ${color1}; width: 15px; height: 15px;"></div>
+                        <span style="font-size: 0.8rem;">${text1}</span>
+                        <span style="color: #666;">⟷</span>
+                        <div class="color-swatch" style="background-color: ${color2}; width: 15px; height: 15px;"></div>
+                        <span style="font-size: 0.8rem;">${text2}</span>
+                    </div>
+                `;
+            });
+            
+            adjacentContent += '</div>';
+            
+            document.getElementById('adjacentContent').innerHTML = adjacentContent;
+            document.getElementById('adjacentAnalysis').style.display = 'block';
+        }
+
+        function createGridLines() {
+            gridOverlays.forEach(overlay => {
+                overlay.innerHTML = ''; // Clear existing lines
+            });
+        }
+
+        function updateGridLines() {
+            const sliceX = parseInt(document.getElementById('sliceX').value);
+            const sliceY = parseInt(document.getElementById('sliceY').value);
+            const sliceZ = parseInt(document.getElementById('sliceZ').value);
+            
+            gridOverlays.forEach(overlay => {
+                overlay.innerHTML = ''; // Clear existing lines
+                
+                const face = overlay.dataset.face;
+                let xSlices, ySlices;
+                
+                // Determine which slices apply to which face
+                switch(face) {
+                    case 'front':
+                    case 'back':
+                        xSlices = sliceX;
+                        ySlices = sliceY;
+                        break;
+                    case 'left':
+                    case 'right':
+                        xSlices = sliceZ;
+                        ySlices = sliceY;
+                        break;
+                    case 'top':
+                    case 'bottom':
+                        xSlices = sliceX;
+                        ySlices = sliceZ;
+                        break;
+                }
+                
+                // Create vertical lines
+                for (let i = 1; i < xSlices; i++) {
+                    const line = document.createElement('div');
+                    line.className = 'grid-line vertical';
+                    line.style.left = `${(i / xSlices) * 100}%`;
+                    overlay.appendChild(line);
+                }
+                
+                // Create horizontal lines
+                for (let i = 1; i < ySlices; i++) {
+                    const line = document.createElement('div');
+                    line.className = 'grid-line horizontal';
+                    line.style.top = `${(i / ySlices) * 100}%`;
+                    overlay.appendChild(line);
+                }
+            });
+        }
+
+        function toggleGridLines() {
+            gridLinesVisible = !gridLinesVisible;
+            const button = document.getElementById('gridToggle');
+            
+            gridOverlays.forEach(overlay => {
+                overlay.classList.toggle('visible', gridLinesVisible);
+            });
+            
+            button.textContent = gridLinesVisible ? 'Hide Grid Lines' : 'Show Grid Lines';
+            button.classList.toggle('active', gridLinesVisible);
+        }
+
+        function loadDicePreset() {
+            const dicePattern = {
+                front: { text: '', color: '#ffffff' },
+                back: { text: '', color: '#ffffff' },
+                right: { text: '', color: '#ffffff' },
+                left: { text: '', color: '#ffffff' },
+                top: { text: '', color: '#ffffff' },
+                bottom: { text: '', color: '#ffffff' }
+            };
+            
+            // Apply basic preset first
+            Object.keys(dicePattern).forEach(faceName => {
+                faceData[faceName] = { ...dicePattern[faceName] };
+                
+                const faceElement = document.querySelector(`[data-face="${faceName}"]`);
+                
+                // Preserve the grid overlay when applying presets
+                const gridOverlay = faceElement.querySelector('.grid-overlay');
+                faceElement.innerHTML = '';
+                if (gridOverlay) {
+                    faceElement.appendChild(gridOverlay);
+                }
+                faceElement.style.backgroundColor = dicePattern[faceName].color;
+            });
+            
+            // Create dice dots for each face
+            createDiceDots('front', 1);
+            createDiceDots('back', 6);
+            createDiceDots('right', 2);
+            createDiceDots('left', 5);
+            createDiceDots('top', 3);
+            createDiceDots('bottom', 4);
+            
+            selectFace(selectedFace); // Refresh input fields
+            updateGridLines(); // Ensure grid lines are regenerated
+        }
+
+        function createDiceDots(faceName, number) {
+            const faceElement = document.querySelector(`[data-face="${faceName}"]`);
+            
+            // Create dice dots container
+            const dotsContainer = document.createElement('div');
+            dotsContainer.className = `dice-dots dice-${number}`;
+            
+            // Create the appropriate number of dots
+            for (let i = 0; i < number; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'dice-dot';
+                dotsContainer.appendChild(dot);
+            }
+            
+            // Add specific positioning for dice patterns
+            if (number === 2) {
+                dotsContainer.style.justifyContent = 'space-between';
+                dotsContainer.style.alignItems = 'stretch';
+                dotsContainer.style.flexDirection = 'column';
+                dotsContainer.children[0].style.alignSelf = 'flex-start';
+                dotsContainer.children[1].style.alignSelf = 'flex-end';
+            } else if (number === 3) {
+                dotsContainer.style.justifyContent = 'space-between';
+                dotsContainer.style.alignItems = 'stretch';
+                dotsContainer.style.flexDirection = 'column';
+                dotsContainer.children[0].style.alignSelf = 'flex-start';
+                dotsContainer.children[1].style.alignSelf = 'center';
+                dotsContainer.children[2].style.alignSelf = 'flex-end';
+            } else if (number === 5) {
+                // Special layout for 5: corners + center
+                dotsContainer.innerHTML = '';
+                const positions = [
+                    { gridColumn: '1', gridRow: '1' },
+                    { gridColumn: '3', gridRow: '1' },
+                    { gridColumn: '2', gridRow: '2' },
+                    { gridColumn: '1', gridRow: '3' },
+                    { gridColumn: '3', gridRow: '3' }
+                ];
+                positions.forEach(pos => {
+                    const dot = document.createElement('div');
+                    dot.className = 'dice-dot';
+                    dot.style.gridColumn = pos.gridColumn;
+                    dot.style.gridRow = pos.gridRow;
+                    dotsContainer.appendChild(dot);
+                });
+            }
+            
+            // Insert before grid overlay
+            const gridOverlay = faceElement.querySelector('.grid-overlay');
+            if (gridOverlay) {
+                faceElement.insertBefore(dotsContainer, gridOverlay);
+            } else {
+                faceElement.appendChild(dotsContainer);
+            }
+            
+            // Update face data
+            faceData[faceName].text = `Dice ${number}`;
+        }
+
+        function loadColorPreset() {
+            const colorPattern = {
+                front: { text: 'Red', color: '#ff0000' },
+                back: { text: 'Blue', color: '#0000ff' },
+                right: { text: 'Green', color: '#00ff00' },
+                left: { text: 'Yellow', color: '#ffff00' },
+                top: { text: 'Orange', color: '#ffa500' },
+                bottom: { text: 'Purple', color: '#800080' }
+            };
+            
+            applyPreset(colorPattern);
+        }
+
+        function loadNumberPreset() {
+            const numberPattern = {
+                front: { text: '1', color: '#ff6b6b' },
+                back: { text: '2', color: '#4ecdc4' },
+                right: { text: '3', color: '#45b7d1' },
+                left: { text: '4', color: '#96ceb4' },
+                top: { text: '5', color: '#ffeaa7' },
+                bottom: { text: '6', color: '#dda0dd' }
+            };
+            
+            applyPreset(numberPattern);
+        }
+
+        function loadOppositePreset() {
+            const oppositePattern = {
+                front: { text: 'A', color: '#ff6b6b' },
+                back: { text: 'A\'', color: '#ff6b6b' },
+                right: { text: 'B', color: '#45b7d1' },
+                left: { text: 'B\'', color: '#45b7d1' },
+                top: { text: 'C', color: '#ffeaa7' },
+                bottom: { text: 'C\'', color: '#ffeaa7' }
+            };
+            
+            applyPreset(oppositePattern);
+        }
+
+        function loadAptitudePreset() {
+            const aptitudePattern = {
+                front: { text: 'Red', color: '#ff0000' },
+                back: { text: 'Red', color: '#ff0000' },
+                right: { text: 'Blue', color: '#0000ff' },
+                left: { text: 'Green', color: '#00ff00' },
+                top: { text: 'Blue', color: '#0000ff' },
+                bottom: { text: 'Yellow', color: '#ffff00' }
+            };
+            
+            applyPreset(aptitudePattern);
+        }
+
+        function applyPreset(pattern) {
+            Object.keys(pattern).forEach(faceName => {
+                faceData[faceName] = { ...pattern[faceName] };
+                
+                const faceElement = document.querySelector(`[data-face="${faceName}"]`);
+                
+                // Preserve the grid overlay when applying presets
+                const gridOverlay = faceElement.querySelector('.grid-overlay');
+                faceElement.innerHTML = pattern[faceName].text;
+                if (gridOverlay) {
+                    faceElement.appendChild(gridOverlay);
+                }
+                faceElement.style.backgroundColor = pattern[faceName].color;
+            });
+            
+            selectFace(selectedFace); // Refresh input fields
+            
+            // Ensure grid lines are regenerated
+            updateGridLines();
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
